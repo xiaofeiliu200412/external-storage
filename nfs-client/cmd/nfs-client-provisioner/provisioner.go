@@ -45,6 +45,7 @@ type nfsProvisioner struct {
 	client kubernetes.Interface
 	server string
 	path   string
+	shared bool
 }
 
 const (
@@ -62,7 +63,16 @@ func (p *nfsProvisioner) Provision(options controller.VolumeOptions) (*v1.Persis
 	pvcNamespace := options.PVC.Namespace
 	pvcName := options.PVC.Name
 
-	pvName := strings.Join([]string{pvcNamespace, pvcName, options.PVName}, "-")
+	pvName := ""
+	if p.shared {
+		if strings.Contains(pvName, ".") {
+			pvName = pvcName
+		} else {
+			pvName := strings.Join([]string{pvcNamespace, pvcName}, ".")
+		}
+	} else {
+		pvName := strings.Join([]string{pvcNamespace, pvcName, options.PVName}, "-")
+	}
 
 	fullPath := filepath.Join(mountPath, pvName)
 	glog.V(4).Infof("creating path %s", fullPath)
@@ -157,6 +167,8 @@ func main() {
 	if path == "" {
 		glog.Fatal("NFS_PATH not set")
 	}
+	shared := os.Getenv("NFS_NAMESPACE_SHARED") == "true"
+
 	provisionerName := os.Getenv(provisionerNameKey)
 	if provisionerName == "" {
 		glog.Fatalf("environment variable %s is not set! Please set it.", provisionerNameKey)
@@ -184,6 +196,7 @@ func main() {
 		client: clientset,
 		server: server,
 		path:   path,
+		shared: shared,
 	}
 	// Start the provision controller which will dynamically provision efs NFS
 	// PVs
