@@ -65,19 +65,21 @@ func (p *nfsProvisioner) Provision(options controller.VolumeOptions) (*v1.Persis
 
 	pvName := ""
 	if p.shared {
-		if strings.Contains(pvName, ".") {
+		if strings.Contains(pvcName, ".") {
 			pvName = pvcName
 		} else {
-			pvName := strings.Join([]string{pvcNamespace, pvcName}, ".")
+			pvName = strings.Join([]string{pvcNamespace, pvcName}, ".")
 		}
 	} else {
-		pvName := strings.Join([]string{pvcNamespace, pvcName, options.PVName}, "-")
+		pvName = strings.Join([]string{pvcNamespace, pvcName, options.PVName}, "-")
 	}
 
 	fullPath := filepath.Join(mountPath, pvName)
 	glog.V(4).Infof("creating path %s", fullPath)
 	if err := os.MkdirAll(fullPath, 0777); err != nil {
-		return nil, errors.New("unable to create directory to provision new pv: " + err.Error())
+		if !p.shared {
+			return nil, errors.New("unable to create directory to provision new pv: " + err.Error())
+		}
 	}
 	os.Chmod(fullPath, 0777)
 
